@@ -3,8 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Member;
-use App\Http\Requests\StoreMemberRequest;
-use App\Http\Requests\UpdateMemberRequest;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+
 
 class MemberController extends Controller
 {
@@ -13,15 +14,43 @@ class MemberController extends Controller
      */
     public function index()
     {
-        //
+        return Member::all();
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StoreMemberRequest $request)
+    public function store(Request $request)
     {
-        //
+        $fields= $request->validate([
+            'name' => 'required|max:255|unique:members,name',
+            'profile_picture' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+        ]);
+        if ($request->hasFile('profile_picture')) {
+            // อัปโหลดไฟล์และเก็บ URL
+            try {
+                // อัพโหลดและเก็บ Url
+                $path = $request->file('profile_picture')->store('profile_pictures', 'public');
+                $fields['profile_picture'] = asset('storage/' . $path);
+                Log::info('Profile Picture Path', ['profile_picture' => $fields['profile_picture']]);
+
+                Log::info('Fields after profile picture upload', ['data' => $fields]);
+            } catch (\Exception $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to upload profile picture',
+                    'error' => $e->getMessage()
+                ], 500);
+            }
+        } else {
+            // หากไม่มีการอัปโหลด ให้ตั้งค่าเป้น null
+            $fields['profile_picture'] = null;
+        }
+
+       $member = Member::create($fields);
+
+
+       return $member;
     }
 
     /**
@@ -29,15 +58,22 @@ class MemberController extends Controller
      */
     public function show(Member $member)
     {
-        //
+        return $member;
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdateMemberRequest $request, Member $member)
+    public function update(Request $request, Member $member)
     {
-        //
+        $fields= $request->validate([
+            'name' => 'required|max:255|unique:members,name',
+            'profile_picture' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+        ]);
+
+        $member->update($fields);
+
+        return $member;
     }
 
     /**
@@ -45,6 +81,7 @@ class MemberController extends Controller
      */
     public function destroy(Member $member)
     {
-        //
+        $member->delete();
+        return ['message'=>'Member has been deleted'];
     }
 }
